@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Memo Builder - Five Cs of Credit</title>
+<!-- fflate: tiny zip library bundled inline via CDN - needed for docx packaging -->
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,'Times New Roman',serif;font-size:14px;color:#1a1a2e;background:#f4f1eb;min-height:100vh}
+.topbar{background:#1a1a2e;color:#e8e0d0;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #c9a84c;flex-wrap:wrap;gap:8px}
+.topbar-title{font-size:17px;font-weight:bold;letter-spacing:.5px}
+.topbar-sub{font-size:11px;color:#a89070;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+.api-banner{background:#12122a;border-bottom:1px solid #c9a84c;padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.api-banner label{font-size:12px;color:#c9a84c;font-family:Arial,sans-serif;font-weight:bold;white-space:nowrap}
+.api-banner input{flex:1;min-width:260px;padding:7px 10px;background:#1e1e3a;border:1px solid #444;color:#e8e0d0;font-size:12px;font-family:monospace;border-radius:3px}
+.api-banner input:focus{outline:none;border-color:#c9a84c}
+.api-hint{font-size:11px;color:#7070a0;font-family:Arial,sans-serif}
+.api-hint a{color:#c9a84c;text-decoration:none}
+.api-status{font-size:11px;font-family:Arial,sans-serif;padding:3px 10px;border-radius:3px;white-space:nowrap}
+.api-status.ok{background:#1e3a1e;color:#a0d4a0;border:1px solid #4caf50}
+.api-status.missing{background:#3a1e1e;color:#ffaaaa;border:1px solid #c0392b}
+.tabs-bar{background:#232341;display:flex;overflow-x:auto;border-bottom:1px solid #c9a84c}
+.tab-btn{padding:10px 16px;font-size:12px;color:#9090b0;cursor:pointer;white-space:nowrap;border:none;background:transparent;border-bottom:3px solid transparent;font-family:Arial,sans-serif;letter-spacing:.4px}
+.tab-btn:hover{color:#e8e0d0}
+.tab-btn.active{color:#c9a84c;border-bottom-color:#c9a84c}
+.main{display:grid;grid-template-columns:1fr 300px;min-height:calc(100vh - 180px)}
+@media(max-width:900px){.main{grid-template-columns:1fr}.sidebar{display:none}}
+.form-area{padding:24px;background:#faf8f4}
+.sidebar{background:#1a1a2e;padding:20px;border-left:1px solid #c9a84c;overflow-y:auto}
+.section-title{font-size:15px;font-weight:bold;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #c9a84c;font-family:Arial,sans-serif}
+.field-row{margin-bottom:14px}
+.field-row label{display:block;font-size:11px;font-weight:bold;color:#555;margin-bottom:4px;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:.4px}
+.field-row input,.field-row select,.field-row textarea{width:100%;padding:8px 10px;border:1px solid #ccc;background:#fff;font-size:13px;font-family:Georgia,serif;color:#1a1a2e;border-radius:3px}
+.field-row input:focus,.field-row select:focus,.field-row textarea:focus{outline:none;border-color:#c9a84c;box-shadow:0 0 0 2px rgba(201,168,76,.15)}
+.field-row textarea{resize:vertical;min-height:70px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.radio-group{display:flex;gap:16px;align-items:center;padding:6px 0}
+.radio-group label{font-size:13px;font-weight:normal;text-transform:none;letter-spacing:0;display:flex;align-items:center;gap:5px;cursor:pointer}
+.repeatable-group{border:1px solid #ddd;border-radius:4px;padding:12px;margin-bottom:8px;background:#fefefe;position:relative}
+.repeatable-group .remove-btn{position:absolute;top:8px;right:8px;background:#c0392b;color:#fff;border:none;border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer}
+.add-btn{background:transparent;border:1px solid #c9a84c;color:#7a6020;padding:6px 14px;font-size:12px;cursor:pointer;border-radius:3px;font-family:Arial,sans-serif;margin-top:4px}
+.add-btn:hover{background:#f5edd0}
+.upload-zone{border:2px dashed #c9a84c;border-radius:4px;padding:14px;text-align:center;cursor:pointer;background:#fdf9ee;margin-bottom:6px}
+.upload-zone:hover{background:#f5edd0}
+.upload-zone input[type=file]{display:none}
+.upload-zone-label{font-size:12px;color:#7a6020;font-family:Arial,sans-serif}
+.uploaded-files{font-size:12px;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px}
+.uploaded-files span{display:inline-block;background:#e8f4e8;border:1px solid #4caf50;border-radius:3px;padding:2px 8px;color:#2d7d3a}
+.btn-primary{background:#1a1a2e;color:#c9a84c;border:1px solid #c9a84c;padding:10px 24px;font-size:13px;cursor:pointer;border-radius:3px;font-family:Arial,sans-serif;letter-spacing:.5px;font-weight:bold}
+.btn-primary:hover{background:#2a2a4e}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:transparent;color:#9090b0;border:1px solid #444;padding:8px 16px;font-size:12px;cursor:pointer;border-radius:3px;font-family:Arial,sans-serif}
+.btn-secondary:hover{color:#e8e0d0;border-color:#9090b0}
+.sidebar-label{font-size:10px;color:#7070a0;text-transform:uppercase;letter-spacing:.8px;font-family:Arial,sans-serif;margin-bottom:4px;margin-top:12px}
+.sidebar-value{font-size:12px;color:#e8e0d0;font-family:Arial,sans-serif;margin-bottom:2px}
+.sidebar-value span{color:#c9a84c;font-weight:bold}
+.status-msg{background:#1e3a5f;border:1px solid #3a7bd5;color:#aad4ff;padding:10px 14px;border-radius:3px;font-size:12px;font-family:Arial,sans-serif;margin-bottom:10px;line-height:1.5}
+.status-msg.success{background:#1e3a1e;border-color:#4caf50;color:#a0d4a0}
+.status-msg.error{background:#3a1e1e;border-color:#c0392b;color:#ffaaaa}
+.section-help{font-size:11px;color:#777;font-family:Arial,sans-serif;margin-bottom:14px;line-height:1.5;font-style:italic}
+.nav-btns{display:flex;justify-content:space-between;margin-top:24px;padding-top:16px;border-top:1px solid #ddd}
+hr.divider{border:none;border-top:1px solid #e0d8c8;margin:16px 0}
+.generate-area{background:#1a1a2e;padding:16px 24px;border-top:2px solid #c9a84c;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap}
+.progress-bar{width:100%;background:#333;border-radius:3px;height:6px;margin-bottom:8px;overflow:hidden}
+.progress-fill{height:6px;background:#c9a84c;border-radius:3px;transition:width .4s;width:0%}
+.instructions-box{background:#12122a;border:1px solid #444;padding:16px;font-family:Arial,sans-serif;font-size:12px;color:#9090b0;line-height:1.7}
+.instructions-box h3{color:#c9a84c;margin-bottom:8px;font-size:13px}
+.instructions-box a{color:#c9a84c}
+.instructions-toggle{background:transparent;border:none;color:#c9a84c;font-size:12px;font-family:Arial,sans-serif;cursor:pointer;padding:0;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <div class="topbar-title">Credit Memo Builder</div>
+    <div class="topbar-sub">Five Cs of Credit - AI-Assisted Analysis</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button class="instructions-toggle" onclick="toggleInstr()">How to share this tool</button>
+    <button class="btn-secondary" onclick="clearForm()">Clear Form</button>
+    <button class="btn-secondary" onclick="saveToStorage()">Save</button>
+  </div>
+</div>
+
+<div id="instrBox" style="display:none">
+  <div class="instructions-box">
+    <h3>How to Host and Share This Tool</h3>
+    <strong style="color:#e8e0d0">Option 1 - GitHub Pages:</strong><br>
+    1. Create a free account at <a href="https://github.com" target="_blank">github.com</a><br>
+    2. Create a new repository and upload this file renamed to <code style="color:#c9a84c">index.html</code><br>
+    3. Go to Settings &gt; Pages &gt; set Source to main branch &gt; Save<br>
+    4. Share the link: <code style="color:#c9a84c">https://yourusername.github.io/repositoryname</code><br><br>
+    <strong style="color:#e8e0d0">Option 2 - Share the file directly:</strong> Email or share the HTML file. Recipients open it in Chrome, Edge, Firefox, or Safari.<br><br>
+    <strong style="color:#e8e0d0">API Key:</strong> Each user needs their own Anthropic API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. The key is stored only in their browser.
+  </div>
+</div>
+
+<div class="api-banner">
+  <label>Anthropic API Key</label>
+  <input type="password" id="apiKeyInput" placeholder="sk-ant-..." oninput="checkApiKey()" autocomplete="off">
+  <div id="apiKeyStatus" class="api-status missing">Key required</div>
+  <div class="api-hint">Get your key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> &nbsp;|&nbsp; Stored locally in your browser only</div>
+</div>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showTab(0)" id="tab0">1. Loan Terms</button>
+  <button class="tab-btn" onclick="showTab(1)" id="tab1">2. Borrower</button>
+  <button class="tab-btn" onclick="showTab(2)" id="tab2">3. Character</button>
+  <button class="tab-btn" onclick="showTab(3)" id="tab3">4. Capital</button>
+  <button class="tab-btn" onclick="showTab(4)" id="tab4">5. Capacity</button>
+  <button class="tab-btn" onclick="showTab(5)" id="tab5">6. Collateral</button>
+  <button class="tab-btn" onclick="showTab(6)" id="tab6">7. Condition</button>
+  <button class="tab-btn" onclick="showTab(7)" id="tab7">8. Documents</button>
+</div>
+
+<div class="main">
+  <div class="form-area">
+
+    <div class="tab-panel" id="panel0">
+      <div class="section-title">Loan Terms</div>
+      <div class="section-help">Enter the proposed loan structure. All fields appear in the Loan Summary Table of the credit memo.</div>
+      <div class="two-col">
+        <div class="field-row"><label>Loan Type</label>
+          <select id="loanType"><option value="">-- Select --</option><option>Term Loan</option><option>Line of Credit</option><option>Construction Loan</option><option>SBA 7(a)</option><option>SBA 504</option><option>USDA Business and Industry</option><option>Bridge Loan</option><option>Mini-Perm</option><option>Commercial Real Estate</option><option>Other</option></select>
+        </div>
+        <div class="field-row"><label>Loan Amount ($)</label><input type="text" id="loanAmount" placeholder="e.g. 2,500,000"></div>
+      </div>
+      <div class="field-row"><label>Loan Purpose</label><textarea id="loanPurpose" placeholder="Describe the intended use of loan proceeds..."></textarea></div>
+      <div class="three-col">
+        <div class="field-row"><label>Interest Rate (%)</label><input type="text" id="interestRate" placeholder="e.g. 7.25"></div>
+        <div class="field-row"><label>Rate Type</label><select id="rateType"><option>Fixed</option><option>Variable</option></select></div>
+        <div class="field-row"><label>Index + Spread (if variable)</label><input type="text" id="rateIndex" placeholder="e.g. Prime + 1.75%"></div>
+      </div>
+      <div class="three-col">
+        <div class="field-row"><label>Maturity (months)</label><input type="text" id="maturity" placeholder="e.g. 120"></div>
+        <div class="field-row"><label>Amortization (months)</label><input type="text" id="amortization" placeholder="e.g. 300"></div>
+        <div class="field-row"><label>Interest-Only Period (months)</label><input type="text" id="ioPeriod" placeholder="e.g. 12"></div>
+      </div>
+      <div class="two-col">
+        <div class="field-row"><label>Prepayment Penalty</label>
+          <div class="radio-group"><label><input type="radio" name="prepay" value="No" checked> No</label><label><input type="radio" name="prepay" value="Yes"> Yes</label></div>
+          <textarea id="prepayDetail" placeholder="Describe penalty structure..." style="margin-top:6px;height:48px"></textarea>
+        </div>
+        <div class="field-row"><label>Recourse</label><select id="recourse"><option>Full Recourse</option><option>Partial Recourse</option><option>Non-Recourse</option></select></div>
+      </div>
+      <div class="two-col">
+        <div class="field-row"><label>Fees</label><input type="text" id="fees" placeholder="e.g. 1% origination fee"></div>
+        <div class="field-row"><label>Recommendation</label><select id="recommendation"><option>Approval</option><option>Conditional Approval</option><option>Decline</option><option>Further Information Required</option></select></div>
+      </div>
+      <div class="field-row"><label>Covenants</label><textarea id="covenants" placeholder="List any financial or operational covenants..." style="height:50px"></textarea></div>
+      <div class="field-row"><label>Conditions or Stipulations Prior to Funding</label><textarea id="conditions" placeholder="List conditions that must be satisfied..."></textarea></div>
+    </div>
+
+    <div class="tab-panel" id="panel1" style="display:none">
+      <div class="section-title">Borrower Information</div>
+      <div class="two-col">
+        <div class="field-row"><label>Borrower Legal Name</label><input type="text" id="borrowerName" placeholder="Full legal name or entity name"></div>
+        <div class="field-row"><label>Entity Type</label><select id="entityType"><option>LLC</option><option>S-Corp</option><option>C-Corp</option><option>Partnership</option><option>Individual</option><option>Trust</option><option>Nonprofit</option><option>Other</option></select></div>
+      </div>
+      <div class="two-col">
+        <div class="field-row"><label>Borrower Address</label><input type="text" id="borrowerAddress" placeholder="Street, City, State, ZIP"></div>
+        <div class="field-row"><label>Date Established / Incorporated</label><input type="text" id="dateEstablished" placeholder="e.g. March 15, 2010"></div>
+      </div>
+      <div class="two-col">
+        <div class="field-row"><label>Industry / Business Type</label><input type="text" id="industry" placeholder="e.g. Hospitality, Healthcare, Retail"></div>
+        <div class="field-row"><label>Number of Employees</label><input type="text" id="employees" placeholder="e.g. 42"></div>
+      </div>
+      <div class="field-row"><label>Primary Business Activity</label><textarea id="bizActivity" placeholder="Describe what the borrower does..." style="height:55px"></textarea></div>
+      <hr class="divider">
+      <div class="section-title" style="font-size:13px;margin-bottom:8px">Personal Guarantors</div>
+      <div id="guarantorsList"></div><button class="add-btn" onclick="addGuarantor()">+ Add Guarantor</button>
+      <hr class="divider">
+      <div class="section-title" style="font-size:13px;margin-bottom:8px">Corporate Guarantors</div>
+      <div id="corpGuarantorsList"></div><button class="add-btn" onclick="addCorpGuarantor()">+ Add Corporate Guarantor</button>
+      <hr class="divider">
+      <div class="section-title" style="font-size:13px;margin-bottom:8px">Related Entities</div>
+      <div id="relatedEntitiesList"></div><button class="add-btn" onclick="addRelatedEntity()">+ Add Related Entity</button>
+    </div>
+
+    <div class="tab-panel" id="panel2" style="display:none">
+      <div class="section-title">Character</div>
+      <div class="section-help">Upload or paste credit reports and background materials.</div>
+      <div class="field-row"><label>Upload Credit Report or Background Materials (PDF or TXT)</label>
+        <div class="upload-zone" onclick="document.getElementById('creditReportUpload').click()"><div class="upload-zone-label">Click to upload PDF or text file</div>
+        <input type="file" id="creditReportUpload" accept=".pdf,.txt" multiple onchange="handleUpload(this,'creditReportFiles','creditReportText')"></div>
+        <div class="uploaded-files" id="creditReportFiles"></div>
+      </div>
+      <div class="field-row"><label>Credit Report Summary</label><textarea id="creditReportText" placeholder="Paste credit report findings -- scores, payment history, derogatory items..." style="min-height:90px"></textarea></div>
+      <div class="section-title" style="font-size:13px;margin-bottom:8px;margin-top:4px">Credit Scores</div>
+      <div id="creditScoresList"></div><button class="add-btn" onclick="addCreditScore()">+ Add Credit Score Entry</button>
+      <hr class="divider">
+      <div class="field-row"><label>Management Background and Experience</label><textarea id="mgmtBackground" placeholder="Describe the principals -- experience, background, education, credentials..." style="min-height:80px"></textarea></div>
+      <div class="two-col">
+        <div class="field-row"><label>Years in Business / Experience</label><input type="text" id="yearsExp" placeholder="e.g. 18 years"></div>
+        <div class="field-row"><label>Prior Relationship with Institution</label><select id="priorRelationship"><option>No prior relationship</option><option>Existing deposit customer</option><option>Existing loan customer - good standing</option><option>Existing loan customer - issues noted</option><option>Other</option></select></div>
+      </div>
+      <div class="field-row"><label>Adverse History</label><textarea id="adverseHistory" placeholder="Defaults, foreclosures, litigation, bankruptcy or note None identified..." style="height:55px"></textarea></div>
+    </div>
+
+    <div class="tab-panel" id="panel3" style="display:none">
+      <div class="section-title">Capital</div>
+      <div class="section-help">Upload or paste the Personal Financial Statement.</div>
+      <div class="field-row"><label>Upload Personal Financial Statement (PDF or TXT)</label>
+        <div class="upload-zone" onclick="document.getElementById('pfsUpload').click()"><div class="upload-zone-label">Click to upload PDF or text file</div>
+        <input type="file" id="pfsUpload" accept=".pdf,.txt" multiple onchange="handleUpload(this,'pfsFiles','pfsText')"></div>
+        <div class="uploaded-files" id="pfsFiles"></div>
+      </div>
+      <div class="field-row"><label>Personal Financial Statement Summary</label><textarea id="pfsText" placeholder="Total Assets, Total Liabilities, Net Worth, Liquid Assets, Real Estate Owned, Contingent Liabilities..." style="min-height:90px"></textarea></div>
+      <div class="field-row"><label>PFS Date</label><input type="text" id="pfsDate" placeholder="e.g. December 31, 2024"></div>
+      <div class="three-col">
+        <div class="field-row"><label>Equity Contribution ($)</label><input type="text" id="equityContrib" placeholder="e.g. 500,000"></div>
+        <div class="field-row"><label>Total Project Cost ($)</label><input type="text" id="totalProjectCost" placeholder="e.g. 3,000,000"></div>
+        <div class="field-row"><label>Equity % of Project</label><input type="text" id="equityPct" placeholder="e.g. 17%"></div>
+      </div>
+      <div class="field-row"><label>Sources and Uses of Funds</label><textarea id="sourcesUses" style="min-height:80px" placeholder="Loan: $2,500,000 (83%). Equity: $500,000 (17%). Uses: Acquisition $2,200,000..."></textarea></div>
+    </div>
+
+    <div class="tab-panel" id="panel4" style="display:none">
+      <div class="section-title">Capacity</div>
+      <div class="section-help">Upload financial statements, tax returns, or cash flow analysis.</div>
+      <div class="field-row"><label>Upload Financial Statements / Tax Returns / Cash Flow Analysis (PDF or TXT)</label>
+        <div class="upload-zone" onclick="document.getElementById('cashFlowUpload').click()"><div class="upload-zone-label">Click to upload PDF or text file(s)</div>
+        <input type="file" id="cashFlowUpload" accept=".pdf,.txt" multiple onchange="handleUpload(this,'cashFlowFiles','cashFlowText')"></div>
+        <div class="uploaded-files" id="cashFlowFiles"></div>
+      </div>
+      <div class="field-row"><label>Global Cash Flow Summary</label><textarea id="cashFlowText" placeholder="Business net income by year, add-backs, debt service, personal income, all obligations, DSCR..." style="min-height:100px"></textarea></div>
+      <div class="three-col">
+        <div class="field-row"><label>DSCR</label><input type="text" id="dscr" placeholder="e.g. 1.32x"></div>
+        <div class="field-row"><label>Years of Financials Analyzed</label><input type="text" id="yearsFinancials" placeholder="e.g. 3"></div>
+        <div class="field-row"><label>Annual Debt Service ($)</label><input type="text" id="annualDebtService" placeholder="e.g. 185,000"></div>
+      </div>
+      <div class="two-col">
+        <div class="field-row"><label>Revenue and Earnings Trend</label><select id="revTrend"><option>Increasing</option><option>Stable</option><option>Declining</option><option>Mixed</option></select></div>
+        <div class="field-row"><label>Trending Notes</label><input type="text" id="trendingNotes" placeholder="Brief commentary on trends..."></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel5" style="display:none">
+      <div class="section-title">Collateral</div>
+      <div class="section-help">Upload or paste the appraisal and environmental study.</div>
+      <div class="field-row"><label>Upload Appraisal (PDF or TXT)</label>
+        <div class="upload-zone" onclick="document.getElementById('appraisalUpload').click()"><div class="upload-zone-label">Click to upload appraisal report</div>
+        <input type="file" id="appraisalUpload" accept=".pdf,.txt" multiple onchange="handleUpload(this,'appraisalFiles','appraisalText')"></div>
+        <div class="uploaded-files" id="appraisalFiles"></div>
+      </div>
+      <div class="field-row"><label>Appraisal Summary</label><textarea id="appraisalText" placeholder="Appraised value, date, appraiser name, property address, property type, as-is / as-completed values..." style="min-height:90px"></textarea></div>
+      <div class="field-row"><label>Upload Environmental Study (PDF or TXT)</label>
+        <div class="upload-zone" onclick="document.getElementById('envUpload').click()"><div class="upload-zone-label">Click to upload Phase I or Phase II report</div>
+        <input type="file" id="envUpload" accept=".pdf,.txt" multiple onchange="handleUpload(this,'envFiles','envText')"></div>
+        <div class="uploaded-files" id="envFiles"></div>
+      </div>
+      <div class="field-row"><label>Environmental Study Summary</label><textarea id="envText" placeholder="Phase I or II findings -- RECs identified, remediation required, or clean..." style="min-height:70px"></textarea></div>
+      <div class="three-col">
+        <div class="field-row"><label>Collateral Type</label><select id="collateralType"><option>Commercial Real Estate</option><option>Residential Real Estate</option><option>Equipment</option><option>Inventory</option><option>Accounts Receivable</option><option>Blanket Lien on Business Assets</option><option>Mixed</option><option>Other</option></select></div>
+        <div class="field-row"><label>Appraised Value ($)</label><input type="text" id="appraisedValue" placeholder="e.g. 3,200,000"></div>
+        <div class="field-row"><label>Loan-to-Value (%)</label><input type="text" id="ltv" placeholder="e.g. 78.1"></div>
+      </div>
+      <div class="two-col">
+        <div class="field-row"><label>Lien Position</label><select id="lienPosition"><option>First Lien</option><option>Second Lien</option><option>Third Lien</option><option>Other</option></select></div>
+        <div class="field-row"><label>Existing Liens or Encumbrances</label><input type="text" id="existingLiens" placeholder="Describe or enter None"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel6" style="display:none">
+      <div class="section-title">Condition</div>
+      <div class="section-help">Upload or paste the feasibility study and provide market context.</div>
+      <div class="field-row"><label>Upload Feasibility Study (PDF or TXT)</label>
+        <div class="upload-zone" onclick="document.getElementById('feasibilityUpload').click()"><div class="upload-zone-label">Click to upload feasibility study</div>
+        <input type="file" id="feasibilityUpload" accept=".pdf,.txt" multiple onchange="handleUpload(this,'feasibilityFiles','feasibilityText')"></div>
+        <div class="uploaded-files" id="feasibilityFiles"></div>
+      </div>
+      <div class="field-row"><label>Feasibility Study Summary</label><textarea id="feasibilityText" placeholder="Market demand, projected revenues, competitive landscape, conclusions..." style="min-height:80px"></textarea></div>
+      <div class="field-row"><label>Industry Outlook</label><textarea id="industryOutlook" placeholder="Current state and near-term outlook for the borrower's industry..." style="height:65px"></textarea></div>
+      <div class="field-row"><label>Local Market Conditions</label><textarea id="marketConditions" placeholder="Local or regional economic conditions relevant to this loan..." style="height:65px"></textarea></div>
+      <div class="field-row"><label>Key Risks</label><textarea id="keyRisks" placeholder="Market concentration, key-person dependency, interest rate sensitivity, competition..." style="height:65px"></textarea></div>
+      <div class="field-row"><label>Mitigating Factors</label><textarea id="mitigatingFactors" placeholder="What reduces or offsets the identified risks..." style="height:65px"></textarea></div>
+    </div>
+
+    <div class="tab-panel" id="panel7" style="display:none">
+      <div class="section-title">Supporting Documents and Final Notes</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_app"> Credit Application</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_pfs"> Personal Financial Statement</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_bizreturns"> Business Tax Returns (3 yrs)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_perreturns"> Personal Tax Returns (3 yrs)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_financials"> Business Financial Statements</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_rentroll"> Rent Roll</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_appraisal"> Appraisal</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_phase1"> Phase I Environmental</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_phase2"> Phase II Environmental</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_feasibility"> Feasibility Study</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_psa"> Purchase and Sale Agreement</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_construction"> Construction Budget</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_org"> Organizational Documents</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_goodstanding"> Certificate of Good Standing</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-family:Arial,sans-serif"><input type="checkbox" id="doc_insurance"> Insurance Documentation</label>
+      </div>
+      <div class="field-row"><label>Additional Notes</label><textarea id="additionalNotes" placeholder="Any context or observations that do not fit elsewhere..." style="min-height:80px"></textarea></div>
+      <div class="two-col">
+        <div class="field-row"><label>Analyst Name</label><input type="text" id="analystName" placeholder="Your name"></div>
+        <div class="field-row"><label>Institution Name</label><input type="text" id="institutionName" placeholder="Bank or credit union name"></div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-secondary" id="prevBtn" onclick="prevTab()" style="display:none">Back</button>
+      <button class="btn-primary" id="nextBtn" onclick="nextTab()">Next Section</button>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div style="color:#c9a84c;font-size:13px;font-weight:bold;font-family:Arial,sans-serif;margin-bottom:10px">Memo Preview</div>
+    <div id="sidebarPreview"><div style="color:#6060a0;font-size:12px;font-family:Arial,sans-serif;line-height:1.6">Fill in the form to see a preview here.</div></div>
+    <div style="margin-top:16px;border-top:1px solid #333;padding-top:14px">
+      <div style="color:#c9a84c;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px">Uploaded Documents</div>
+      <div id="uploadedDocsSummary" style="color:#7070a0;font-size:11px;font-family:Arial,sans-serif">None uploaded yet.</div>
+    </div>
+    <div style="margin-top:16px;border-top:1px solid #333;padding-top:14px" id="statusArea"></div>
+  </div>
+</div>
+
+<div class="generate-area">
+  <div style="width:100%;max-width:520px;text-align:center">
+    <div id="progressWrap" style="display:none;margin-bottom:8px">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div id="progressLabel" style="color:#9090b0;font-size:11px;font-family:Arial,sans-serif"></div>
+    </div>
+    <div style="color:#9090b0;font-size:11px;font-family:Arial,sans-serif;margin-bottom:6px">AI drafts each Five Cs section from your inputs and uploaded documents. Anthropic API key required.</div>
+    <button class="btn-primary" id="generateBtn" onclick="generateMemo()" style="font-size:14px;padding:12px 32px;width:100%">Generate Credit Memo (Word Document)</button>
+  </div>
+</div>
+
+<script>
+// ── PDF.js worker ─────────────────────────────────────────
+if(typeof pdfjsLib !== 'undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+// ── STATE ─────────────────────────────────────────────────
+let currentTab=0, gCount=0;
+let extractedTexts={}, uploadedFileNames={};
+
+// ── TABS ──────────────────────────────────────────────────
+function showTab(n){
+  document.querySelectorAll('.tab-panel').forEach((p,i)=>p.style.display=i===n?'block':'none');
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===n));
+  currentTab=n;
+  document.getElementById('prevBtn').style.display=n===0?'none':'inline-block';
+  document.getElementById('nextBtn').textContent=n===7?'Done':'Next Section';
+  updateSidebar();
+}
+function nextTab(){if(currentTab<7)showTab(currentTab+1);}
+function prevTab(){if(currentTab>0)showTab(currentTab-1);}
+
+// ── HELPERS ───────────────────────────────────────────────
+function v(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function rb(name){const el=document.querySelector('input[name="'+name+'"]:checked');return el?el.value:'';}
+function setStatus(msg,type){document.getElementById('statusArea').innerHTML='<div class="status-msg '+(type||'')+'">'+msg+'</div>';}
+function setProgress(pct,label){
+  document.getElementById('progressWrap').style.display=pct>0?'block':'none';
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressLabel').textContent=label||'';
+}
+function updateSidebar(){
+  document.getElementById('sidebarPreview').innerHTML=
+    '<div class="sidebar-label">Borrower</div><div class="sidebar-value">'+(v('borrowerName')||'Not entered')+'</div>'+
+    '<div class="sidebar-label">Loan Amount</div><div class="sidebar-value"><span>$'+(v('loanAmount')||'--')+'</span></div>'+
+    '<div class="sidebar-label">Loan Type</div><div class="sidebar-value">'+(v('loanType')||'--')+'</div>'+
+    '<div class="sidebar-label">Rate</div><div class="sidebar-value">'+(v('interestRate')?v('interestRate')+'% '+v('rateType'):'--')+'</div>'+
+    '<div class="sidebar-label">Maturity</div><div class="sidebar-value">'+(v('maturity')?v('maturity')+' mo':'--')+'</div>'+
+    '<div class="sidebar-label">Recommendation</div><div class="sidebar-value"><span>'+(v('recommendation')||'--')+'</span></div>';
+}
+function toggleInstr(){const b=document.getElementById('instrBox');b.style.display=b.style.display==='none'?'block':'none';}
+
+// ── FILE UPLOAD ───────────────────────────────────────────
+async function handleUpload(input,displayId,textareaId){
+  const files=input.files; if(!files.length)return;
+  if(!extractedTexts[textareaId])extractedTexts[textareaId]='';
+  if(!uploadedFileNames[textareaId])uploadedFileNames[textareaId]=[];
+  setStatus('Reading file...','info');
+  for(const file of files){
+    uploadedFileNames[textareaId].push(file.name);
+    let extracted='';
+    if(file.name.toLowerCase().endsWith('.pdf') && typeof pdfjsLib!=='undefined'){
+      try{
+        const ab=await file.arrayBuffer();
+        const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+        for(let i=1;i<=Math.min(pdf.numPages,25);i++){
+          const page=await pdf.getPage(i);
+          const content=await page.getTextContent();
+          extracted+=content.items.map(s=>s.str).join(' ')+'\n';
+        }
+      }catch(e){extracted='[PDF extraction failed: '+file.name+'. Please paste the text manually.]';}
+    } else if(file.name.toLowerCase().endsWith('.pdf')){
+      extracted='[PDF.js did not load. Please paste the text content manually into the field below.]';
+    } else {
+      extracted=await file.text();
+    }
+    extractedTexts[textareaId]+='\n\n--- '+file.name+' ---\n'+extracted.substring(0,6000);
+  }
+  document.getElementById(displayId).innerHTML=uploadedFileNames[textareaId].map(n=>'<span>'+n+'</span>').join('');
+  const ta=document.getElementById(textareaId);
+  if(ta&&!ta.value.trim())ta.value=extractedTexts[textareaId].trim().substring(0,2500);
+  document.getElementById('uploadedDocsSummary').innerHTML=Object.values(uploadedFileNames).flat().map(n=>'<div style="color:#a0d4a0;margin-bottom:2px">- '+n+'</div>').join('');
+  setStatus('File loaded.','success');
+}
+
+// ── REPEATABLE FIELDS ─────────────────────────────────────
+function addGuarantor(){
+  const id=gCount++;const d=document.createElement('div');d.className='repeatable-group';
+  d.innerHTML='<button class="remove-btn" onclick="this.parentElement.remove()">Remove</button><div class="three-col">'+
+    '<div class="field-row"><label>Full Name</label><input type="text" id="g_name_'+id+'"></div>'+
+    '<div class="field-row"><label>Ownership %</label><input type="text" id="g_pct_'+id+'"></div>'+
+    '<div class="field-row"><label>Role / Title</label><input type="text" id="g_role_'+id+'"></div></div>';
+  document.getElementById('guarantorsList').appendChild(d);
+}
+function addCorpGuarantor(){
+  const id=gCount++;const d=document.createElement('div');d.className='repeatable-group';
+  d.innerHTML='<button class="remove-btn" onclick="this.parentElement.remove()">Remove</button><div class="three-col">'+
+    '<div class="field-row"><label>Entity Name</label><input type="text" id="cg_name_'+id+'"></div>'+
+    '<div class="field-row"><label>Entity Type</label><input type="text" id="cg_type_'+id+'"></div>'+
+    '<div class="field-row"><label>Relationship</label><input type="text" id="cg_rel_'+id+'"></div></div>';
+  document.getElementById('corpGuarantorsList').appendChild(d);
+}
+function addRelatedEntity(){
+  const id=gCount++;const d=document.createElement('div');d.className='repeatable-group';
+  d.innerHTML='<button class="remove-btn" onclick="this.parentElement.remove()">Remove</button><div class="two-col">'+
+    '<div class="field-row"><label>Entity Name</label><input type="text" id="re_name_'+id+'"></div>'+
+    '<div class="field-row"><label>Relationship</label><input type="text" id="re_rel_'+id+'"></div></div>'+
+    '<div class="field-row"><label>Description</label><input type="text" id="re_desc_'+id+'"></div>';
+  document.getElementById('relatedEntitiesList').appendChild(d);
+}
+function addCreditScore(){
+  const id=gCount++;const d=document.createElement('div');d.className='repeatable-group';
+  d.innerHTML='<button class="remove-btn" onclick="this.parentElement.remove()">Remove</button><div class="three-col">'+
+    '<div class="field-row"><label>Name</label><input type="text" id="cs_name_'+id+'"></div>'+
+    '<div class="field-row"><label>Score</label><input type="text" id="cs_score_'+id+'"></div>'+
+    '<div class="field-row"><label>Bureau / Date</label><input type="text" id="cs_source_'+id+'"></div></div>';
+  document.getElementById('creditScoresList').appendChild(d);
+}
+
+// ── COLLECT DATA ──────────────────────────────────────────
+function collectData(){
+  const guarantors=[],corpGuarantors=[],relatedEntities=[],creditScores=[];
+  document.querySelectorAll('[id^="g_name_"]').forEach(el=>{
+    const id=el.id.replace('g_name_','');const n=el.value.trim();
+    if(n)guarantors.push({name:n,pct:document.getElementById('g_pct_'+id)?.value||'',role:document.getElementById('g_role_'+id)?.value||''});
+  });
+  document.querySelectorAll('[id^="cg_name_"]').forEach(el=>{
+    const id=el.id.replace('cg_name_','');const n=el.value.trim();
+    if(n)corpGuarantors.push({name:n,type:document.getElementById('cg_type_'+id)?.value||'',rel:document.getElementById('cg_rel_'+id)?.value||''});
+  });
+  document.querySelectorAll('[id^="re_name_"]').forEach(el=>{
+    const id=el.id.replace('re_name_','');const n=el.value.trim();
+    if(n)relatedEntities.push({name:n,rel:document.getElementById('re_rel_'+id)?.value||'',desc:document.getElementById('re_desc_'+id)?.value||''});
+  });
+  document.querySelectorAll('[id^="cs_name_"]').forEach(el=>{
+    const id=el.id.replace('cs_name_','');const n=el.value.trim();
+    if(n)creditScores.push({name:n,score:document.getElementById('cs_score_'+id)?.value||'',source:document.getElementById('cs_source_'+id)?.value||''});
+  });
+  const docIds=['doc_app','doc_pfs','doc_bizreturns','doc_perreturns','doc_financials','doc_rentroll','doc_appraisal','doc_phase1','doc_phase2','doc_feasibility','doc_psa','doc_construction','doc_org','doc_goodstanding','doc_insurance'];
+  const docsReceived=docIds.filter(id=>document.getElementById(id)?.checked).map(id=>document.getElementById(id).parentElement.textContent.trim());
+  return{loanType:v('loanType'),loanAmount:v('loanAmount'),loanPurpose:v('loanPurpose'),
+    interestRate:v('interestRate'),rateType:v('rateType'),rateIndex:v('rateIndex'),
+    maturity:v('maturity'),amortization:v('amortization'),ioPeriod:v('ioPeriod'),
+    prepay:rb('prepay'),prepayDetail:v('prepayDetail'),recourse:v('recourse'),
+    fees:v('fees'),covenants:v('covenants'),conditions:v('conditions'),recommendation:v('recommendation'),
+    borrowerName:v('borrowerName'),entityType:v('entityType'),borrowerAddress:v('borrowerAddress'),
+    dateEstablished:v('dateEstablished'),industry:v('industry'),employees:v('employees'),
+    bizActivity:v('bizActivity'),guarantors,corpGuarantors,relatedEntities,
+    creditReportText:v('creditReportText'),creditScores,mgmtBackground:v('mgmtBackground'),
+    yearsExp:v('yearsExp'),priorRelationship:v('priorRelationship'),adverseHistory:v('adverseHistory'),
+    pfsText:v('pfsText'),pfsDate:v('pfsDate'),equityContrib:v('equityContrib'),
+    totalProjectCost:v('totalProjectCost'),equityPct:v('equityPct'),sourcesUses:v('sourcesUses'),
+    cashFlowText:v('cashFlowText'),dscr:v('dscr'),yearsFinancials:v('yearsFinancials'),
+    annualDebtService:v('annualDebtService'),revTrend:v('revTrend'),trendingNotes:v('trendingNotes'),
+    appraisalText:v('appraisalText'),envText:v('envText'),collateralType:v('collateralType'),
+    appraisedValue:v('appraisedValue'),ltv:v('ltv'),lienPosition:v('lienPosition'),existingLiens:v('existingLiens'),
+    feasibilityText:v('feasibilityText'),industryOutlook:v('industryOutlook'),marketConditions:v('marketConditions'),
+    keyRisks:v('keyRisks'),mitigatingFactors:v('mitigatingFactors'),
+    additionalNotes:v('additionalNotes'),analystName:v('analystName'),institutionName:v('institutionName'),
+    docsReceived};
+}
+
+// ── API KEY ───────────────────────────────────────────────
+function getApiKey(){return document.getElementById('apiKeyInput').value.trim();}
+function checkApiKey(){
+  const key=getApiKey(), valid=key.startsWith('sk-ant-')&&key.length>20;
+  const el=document.getElementById('apiKeyStatus');
+  el.textContent=valid?'Key ready':'Key required';
+  el.className='api-status '+(valid?'ok':'missing');
+  if(valid)localStorage.setItem('cmb_apikey',key);
+}
+
+// ── CLAUDE API ────────────────────────────────────────────
+const SYS=`You are a senior commercial lending officer writing a section of a formal credit memorandum.
+Rules without exception:
+- Professional plain English, complete sentences, well-constructed paragraphs.
+- No bullet points or numbered lists within narrative sections.
+- No em dashes. Use a semicolon or new sentence instead.
+- No emojis or special decorative characters.
+- Spell out "and" -- no ampersands in narrative prose.
+- Dollar amounts: $1,250,000 format. Percentages: 6.75% format.
+- Borrower: full legal name on first reference, then "the Borrower."
+- Write 2 to 4 focused paragraphs. No filler language. No fabricated data.
+- Objective and factual tone. No superlatives.`;
+
+async function callClaude(prompt){
+  const key=getApiKey();
+  if(!key.startsWith('sk-ant-'))throw new Error('Please enter a valid Anthropic API key at the top of the page.');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:SYS,messages:[{role:'user',content:prompt}]})
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({error:{message:'HTTP '+res.status}}));throw new Error(e.error?.message||'API error '+res.status);}
+  const data=await res.json();
+  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+
+// ── GENERATE ──────────────────────────────────────────────
+async function generateMemo(){
+  const btn=document.getElementById('generateBtn');
+  btn.disabled=true; btn.textContent='Generating...';
+  const d=collectData();
+  if(!d.borrowerName){setStatus('Please enter a Borrower Name first.','error');btn.disabled=false;btn.textContent='Generate Credit Memo (Word Document)';return;}
+  if(!getApiKey().startsWith('sk-ant-')){setStatus('Please enter your Anthropic API key at the top of the page.','error');btn.disabled=false;btn.textContent='Generate Credit Memo (Word Document)';return;}
+
+  const gStr=d.guarantors.map(g=>g.name+(g.pct?' ('+g.pct+')':'')+(g.role?', '+g.role:'')).join('; ')||'None';
+  const sStr=d.creditScores.map(s=>s.name+': '+s.score+(s.source?' ('+s.source+')':'')).join('; ')||'Not provided';
+
+  const steps=[
+    {label:'Drafting Character section... (1 of 6)',pct:12,prompt:'Write the CHARACTER section of a credit memo.\nBorrower: '+d.borrowerName+' ('+d.entityType+'), '+d.industry+', established '+d.dateEstablished+'.\nYears of management experience: '+d.yearsExp+'.\nManagement background: '+(d.mgmtBackground||'Not provided')+'\nCredit scores: '+sStr+'\nCredit report: '+(d.creditReportText||'Not provided')+'\nAdverse history: '+(d.adverseHistory||'None noted.')+'\nPrior relationship: '+d.priorRelationship+'\nGuarantors: '+gStr+'\nWrite 2 to 4 paragraphs covering management experience, credit history, adverse history, and prior relationship with the institution.'},
+    {label:'Drafting Capital section... (2 of 6)',pct:28,prompt:'Write the CAPITAL section of a credit memo.\nBorrower: '+d.borrowerName+'\nLoan amount: $'+d.loanAmount+'\nPFS date: '+(d.pfsDate||'Not provided')+'\nPersonal financial statement: '+(d.pfsText||'Not provided')+'\nEquity contribution: $'+(d.equityContrib||'Not provided')+'\nTotal project cost: $'+(d.totalProjectCost||'Not provided')+'\nEquity percentage: '+(d.equityPct||'Not provided')+'\nSources and uses: '+(d.sourcesUses||'Not provided')+'\nWrite 2 to 3 paragraphs covering net worth, liquid assets, equity contribution, and adequacy of the borrower\'s capital position.'},
+    {label:'Drafting Capacity section... (3 of 6)',pct:45,prompt:'Write the CAPACITY section of a credit memo.\nBorrower: '+d.borrowerName+'\nLoan: $'+d.loanAmount+' '+d.loanType+', '+d.interestRate+'% '+d.rateType+', maturity '+d.maturity+' months, amortization '+d.amortization+' months.\nAnnual debt service: $'+(d.annualDebtService||'Not provided')+'\nDSCR: '+(d.dscr||'Not provided')+'\nYears analyzed: '+(d.yearsFinancials||'Not provided')+'\nTrend: '+d.revTrend+'\nNotes: '+(d.trendingNotes||'Not provided')+'\nCash flow data: '+(d.cashFlowText||'Not provided')+'\nWrite 2 to 3 paragraphs covering repayment capacity, DSCR, years analyzed, and earnings trends.'},
+    {label:'Drafting Collateral section... (4 of 6)',pct:62,prompt:'Write the COLLATERAL section of a credit memo.\nBorrower: '+d.borrowerName+'\nCollateral type: '+d.collateralType+'\nAppraised value: $'+(d.appraisedValue||'Not provided')+'\nLoan amount: $'+d.loanAmount+'\nLTV: '+(d.ltv||'Not provided')+'%\nLien position: '+d.lienPosition+'\nExisting liens: '+(d.existingLiens||'None')+'\nAppraisal: '+(d.appraisalText||'Not provided')+'\nEnvironmental: '+(d.envText||'Not provided')+'\nWrite 2 to 3 paragraphs covering collateral description, appraised value, LTV, lien position, and environmental study results.'},
+    {label:'Drafting Condition section... (5 of 6)',pct:78,prompt:'Write the CONDITION section of a credit memo.\nBorrower: '+d.borrowerName+', Industry: '+d.industry+'\nLoan purpose: '+(d.loanPurpose||'Not provided')+'\nFeasibility study: '+(d.feasibilityText||'Not provided')+'\nIndustry outlook: '+(d.industryOutlook||'Not provided')+'\nMarket conditions: '+(d.marketConditions||'Not provided')+'\nWrite 2 to 3 paragraphs covering economic and market conditions, industry outlook, local market dynamics, and feasibility study conclusions.'},
+    {label:'Drafting Risk and Mitigants... (6 of 6)',pct:90,prompt:'Write the RISK AND MITIGANTS section of a credit memo.\nBorrower: '+d.borrowerName+'\nKey risks: '+(d.keyRisks||'Not provided')+'\nMitigating factors: '+(d.mitigatingFactors||'Not provided')+'\nAdditional notes: '+(d.additionalNotes||'None')+'\nWrite 1 to 2 paragraphs summarizing the primary risks and the factors that offset or reduce those risks.'},
+  ];
+
+  const results=[];
+  try{
+    for(const step of steps){
+      setProgress(step.pct,step.label);
+      setStatus(step.label,'info');
+      results.push(await callClaude(step.prompt));
+    }
+    setProgress(96,'Building Word document...');
+    setStatus('Building Word document...','info');
+    buildDocx(d,...results);
+    setProgress(0,'');
+    setStatus('Credit memo downloaded successfully.','success');
+  }catch(e){
+    console.error(e);
+    setProgress(0,'');
+    setStatus('Error: '+e.message,'error');
+  }
+  btn.disabled=false; btn.textContent='Generate Credit Memo (Word Document)';
+}
+
+// ── DOCX BUILDER (pure browser, zero external libraries) ──
+function esc(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/\u2014/g,'-')
+    .replace(/\u2013/g,'-')
+    .replace(/\u201C/g,'"')
+    .replace(/\u201D/g,'"')
+    .replace(/\u2018/g,"'")
+    .replace(/\u2019/g,"'");
+}
+
+function wRun(text,opts){
+  opts=opts||{};
+  const rpr=[
+    opts.bold?'<w:b/>':'',
+    opts.size?'<w:sz w:val="'+(opts.size*2)+'"/><w:szCs w:val="'+(opts.size*2)+'"/>':'<w:sz w:val="22"/><w:szCs w:val="22"/>',
+    opts.color?'<w:color w:val="'+opts.color+'"/>':'',
+    '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>'
+  ].join('');
+  return '<w:r><w:rPr>'+rpr+'</w:rPr><w:t xml:space="preserve">'+esc(text)+'</w:t></w:r>';
+}
+
+function wPara(runs,opts){
+  opts=opts||{};
+  const ppr=[
+    opts.spacing!==false?'<w:spacing w:before="'+(opts.before||0)+'" w:after="'+(opts.after||140)+'" w:line="'+(opts.line||280)+'" w:lineRule="auto"/>':'',
+    opts.justify?'<w:jc w:val="both"/>':'',
+    opts.center?'<w:jc w:val="center"/>':'',
+    opts.borderBottom?'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="C9A84C"/></w:pBdr>':'',
+  ].join('');
+  return '<w:p><w:pPr>'+ppr+'</w:pPr>'+(Array.isArray(runs)?runs.join(''):runs)+'</w:p>';
+}
+
+function wHeading(text){
+  return wPara(wRun(text,{bold:true,size:14,color:'1A1A2E'}),{before:320,after:160,borderBottom:true});
+}
+
+function wBodyText(text){
+  const lines=(text||'').split('\n').filter(s=>s.trim());
+  if(!lines.length)return wPara(wRun('Not provided.',{}),'');
+  return lines.map(line=>wPara(wRun(line.trim()),{after:140,line:280,justify:true})).join('');
+}
+
+function wTableRow(label,value,shade){
+  const bg=shade?'F0EDE4':'FFFFFF';
+  return '<w:tr>'+
+    '<w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/><w:shd w:val="clear" w:fill="'+bg+'"/><w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar></w:tcPr>'+
+    wPara(wRun(label,{bold:true,size:10}),{spacing:false})+'</w:tc>'+
+    '<w:tc><w:tcPr><w:tcW w:w="6360" w:type="dxa"/><w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar></w:tcPr>'+
+    wPara(wRun(String(value||'--'),{size:10}),{spacing:false})+'</w:tc>'+
+    '</w:tr>';
+}
+
+function buildDocx(d,charText,capText,capacityText,collText,condText,riskText){
+  const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const rateDisplay=d.interestRate?d.interestRate+'% '+d.rateType+(d.rateType==='Variable'&&d.rateIndex?' ('+d.rateIndex+')':''):'--';
+  const gDisplay=d.guarantors.map(g=>g.name+(g.pct?' - '+g.pct:'')+(g.role?', '+g.role:'')).join(' | ')||'None';
+  const corpDisplay=d.corpGuarantors.map(g=>g.name).join(', ')||'None';
+  const conditionsArr=(d.conditions||'').split('\n').filter(s=>s.trim());
+
+  const tableRows=[
+    ['Borrower',d.borrowerName],['Entity Type',d.entityType],
+    ['Loan Amount','$'+d.loanAmount],['Loan Type',d.loanType],
+    ['Loan Purpose',d.loanPurpose],['Interest Rate',rateDisplay],
+    ['Maturity',d.maturity?d.maturity+' months':'--'],
+    ['Amortization',d.amortization?d.amortization+' months':'--'],
+    ['Interest-Only Period',d.ioPeriod&&d.ioPeriod!=='0'?d.ioPeriod+' months':'None'],
+    ['Prepayment Penalty',d.prepay==='Yes'?'Yes - '+d.prepayDetail:'None'],
+    ['Recourse',d.recourse],['Collateral Type',d.collateralType],
+    ['Appraised Value',d.appraisedValue?'$'+d.appraisedValue:'--'],
+    ['Loan-to-Value',d.ltv?d.ltv+'%':'--'],['Lien Position',d.lienPosition],
+    ['Personal Guarantors',gDisplay],['Corporate Guarantors',corpDisplay],
+    ['Fees',d.fees||'None'],['Covenants',d.covenants||'None'],
+    ['DSCR',d.dscr||'--'],['Recommendation',d.recommendation],
+  ].map((r,i)=>wTableRow(r[0],r[1],i%2===0)).join('');
+
+  const condList=conditionsArr.length
+    ?conditionsArr.map((c,i)=>'<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>'+wRun((i+1)+'. '+c.trim())+'</w:p>').join('')
+    :wPara(wRun('None specified.'),'');
+
+  const docsList=d.docsReceived.length
+    ?d.docsReceived.map(doc=>wPara(wRun('[X]  '+doc,{size:10}),{after:80})).join('')
+    :wPara(wRun('No documents logged.',{size:10}),'');
+
+  const body=
+    wPara(wRun((d.institutionName||'[Institution Name]').toUpperCase(),{bold:true,size:9,color:'888888'}),{after:80})+
+    wPara(wRun('CREDIT MEMORANDUM',{bold:true,size:20,color:'1A1A2E'}),{after:100})+
+    wPara(wRun('Date: '+today+'     Analyst: '+(d.analystName||'[Analyst Name]'),{size:10,color:'666666'}),{after:60})+
+    wPara(wRun('Borrower: '+d.borrowerName+'     Loan Amount: $'+d.loanAmount+'     Type: '+d.loanType,{bold:true,size:11}),{after:300})+
+    wHeading('Loan Summary')+
+    '<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="1" w:color="DDDDDD"/><w:left w:val="single" w:sz="1" w:color="DDDDDD"/><w:bottom w:val="single" w:sz="1" w:color="DDDDDD"/><w:right w:val="single" w:sz="1" w:color="DDDDDD"/><w:insideH w:val="single" w:sz="1" w:color="DDDDDD"/><w:insideV w:val="single" w:sz="1" w:color="DDDDDD"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="6360"/></w:tblGrid>'+tableRows+'</w:tbl>'+
+    wPara('',{after:300})+
+    wHeading('Section I - Character')+wBodyText(charText)+wPara('',{after:200})+
+    wHeading('Section II - Capital')+wBodyText(capText)+wPara('',{after:200})+
+    wHeading('Section III - Capacity')+wBodyText(capacityText)+wPara('',{after:200})+
+    wHeading('Section IV - Collateral')+wBodyText(collText)+wPara('',{after:200})+
+    wHeading('Section V - Condition')+wBodyText(condText)+wPara('',{after:200})+
+    wHeading('Risk and Mitigants')+wBodyText(riskText)+wPara('',{after:200})+
+    wHeading('Recommendation')+
+    wPara(wRun('Based on the foregoing analysis, it is the recommendation of the undersigned that this credit request be:'),{after:100})+
+    wPara(wRun(d.recommendation.toUpperCase(),{bold:true,size:13,color:'1A1A2E'}),{after:160})+
+    (conditionsArr.length?wPara(wRun('Conditions Prior to or Concurrent with Funding',{bold:true}),{before:160,after:100})+condList:'')+
+    wPara('',{after:200})+
+    wHeading('Supporting Documents Received')+docsList+
+    wPara('',{after:300})+
+    wPara(wRun('Prepared by: '+(d.analystName||'_________________________')),{before:200,after:160})+
+    wPara(wRun('Date: '+today),{after:160})+
+    wPara(wRun('Institution: '+(d.institutionName||'_________________________')),{after:160});
+
+  const docXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" '+
+    'xmlns:mo="http://schemas.microsoft.com/office/mac/office/2008/main" '+
+    'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '+
+    'xmlns:mv="urn:schemas-microsoft-com:mac:vml" '+
+    'xmlns:o="urn:schemas-microsoft-com:office:office" '+
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '+
+    'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '+
+    'xmlns:v="urn:schemas-microsoft-com:vml" '+
+    'xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" '+
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '+
+    'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '+
+    'xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" '+
+    'xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" '+
+    'xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" '+
+    'xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" '+
+    'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" mc:Ignorable="mv mo w14 wp14">'+
+    '<w:body>'+body+
+    '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>'+
+    '</w:body></w:document>';
+
+  const relsXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+
+  const stylesXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>';
+
+  const appXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Credit Memo Builder</Application></Properties>';
+
+  const coreXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>'+(d.analystName||'Analyst')+'</dc:creator><dc:description>Credit Memorandum - '+esc(d.borrowerName)+'</dc:description></cp:coreProperties>';
+
+  const contentTypesXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>';
+
+  const rootRelsXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>';
+
+  // Build zip using fflate if available, otherwise use simple base64 method
+  const enc=new TextEncoder();
+  const files={
+    '[Content_Types].xml':enc.encode(contentTypesXml),
+    '_rels/.rels':enc.encode(rootRelsXml),
+    'word/document.xml':enc.encode(docXml),
+    'word/styles.xml':enc.encode(stylesXml),
+    'word/_rels/document.xml.rels':enc.encode(relsXml),
+    'docProps/app.xml':enc.encode(appXml),
+    'docProps/core.xml':enc.encode(coreXml),
+  };
+
+  if(typeof fflate!=='undefined'){
+    // Use fflate for proper zip compression
+    const zipFiles={};
+    for(const[name,data] of Object.entries(files)){
+      zipFiles[name]=[data,{level:0}]; // store without compression (required for docx spec)
+    }
+    fflate.zip(zipFiles,{comment:''},function(err,zipped){
+      if(err)throw new Error('ZIP error: '+err);
+      const blob=new Blob([zipped],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+      downloadBlob(blob,d);
+    });
+  } else {
+    // Fallback: build zip manually without compression
+    const blob=buildZipBlob(files);
+    downloadBlob(blob,d);
+  }
+}
+
+function downloadBlob(blob,d){
+  const today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const safeName=(d.borrowerName||'CreditMemo').replace(/[^a-zA-Z0-9]/g,'_');
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=safeName+'_CreditMemo_'+today.replace(/[^a-zA-Z0-9]/g,'_')+'.docx';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+}
+
+// Minimal ZIP builder (no compression, store only) -- no external dependencies
+function buildZipBlob(files){
+  const parts=[];
+  const centralDir=[];
+  let offset=0;
+  const enc=new TextEncoder();
+
+  for(const[name,data] of Object.entries(files)){
+    const nameBytes=enc.encode(name);
+    const crc=crc32(data);
+    const localHeader=makeLocalHeader(nameBytes,data.length,crc);
+    parts.push(localHeader);
+    parts.push(data);
+    centralDir.push({nameBytes,size:data.length,crc,offset});
+    offset+=localHeader.length+data.length;
+  }
+
+  const centralDirBytes=centralDir.map(e=>makeCentralHeader(e.nameBytes,e.size,e.crc,e.offset));
+  const centralSize=centralDirBytes.reduce((a,b)=>a+b.length,0);
+  const eocd=makeEOCD(centralDir.length,centralSize,offset);
+
+  const allParts=[...parts,...centralDirBytes,eocd];
+  const total=allParts.reduce((a,b)=>a+b.length,0);
+  const out=new Uint8Array(total);
+  let pos=0;
+  for(const p of allParts){out.set(p,pos);pos+=p.length;}
+  return new Blob([out],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+
+function u16(n){return[n&0xff,(n>>8)&0xff];}
+function u32(n){return[n&0xff,(n>>8)&0xff,(n>>16)&0xff,(n>>24)&0xff];}
+function makeLocalHeader(name,size,crc){
+  const h=[0x50,0x4b,0x03,0x04,20,0,0,0,0,0,0,0,0,0,...u32(crc),...u32(size),...u32(size),...u16(name.length),...u16(0)];
+  return new Uint8Array([...h,...name]);
+}
+function makeCentralHeader(name,size,crc,offset){
+  const h=[0x50,0x4b,0x01,0x02,20,0,20,0,0,0,0,0,0,0,0,0,...u32(crc),...u32(size),...u32(size),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(offset)];
+  return new Uint8Array([...h,...name]);
+}
+function makeEOCD(count,size,offset){
+  return new Uint8Array([0x50,0x4b,0x05,0x06,0,0,0,0,...u16(count),...u16(count),...u32(size),...u32(offset),...u16(0)]);
+}
+function crc32(data){
+  let crc=0xFFFFFFFF;
+  const table=crc32.table||(crc32.table=(()=>{
+    const t=new Uint32Array(256);
+    for(let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=c&1?(0xEDB88320^(c>>>1)):c>>>1;t[i]=c;}
+    return t;
+  })());
+  for(let i=0;i<data.length;i++)crc=table[(crc^data[i])&0xff]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+
+// ── SAVE / LOAD / CLEAR ───────────────────────────────────
+function saveToStorage(){
+  try{localStorage.setItem('cmb_data',JSON.stringify(collectData()));setStatus('Saved.','success');}
+  catch(e){setStatus('Save failed.','error');}
+}
+function clearForm(){
+  if(!confirm('Clear all form data? This cannot be undone.'))return;
+  localStorage.removeItem('cmb_data');
+  document.querySelectorAll('input[type=text],textarea').forEach(el=>el.value='');
+  document.querySelectorAll('select').forEach(el=>el.selectedIndex=0);
+  document.querySelectorAll('input[type=checkbox]').forEach(el=>el.checked=false);
+  document.querySelectorAll('input[type=radio][value="No"]').forEach(el=>el.checked=true);
+  ['guarantorsList','corpGuarantorsList','relatedEntitiesList','creditScoresList'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  extractedTexts={};uploadedFileNames={};
+  document.getElementById('uploadedDocsSummary').textContent='None uploaded yet.';
+  setStatus('Form cleared.','info');
+}
+function loadSaved(){
+  try{
+    const k=localStorage.getItem('cmb_apikey');
+    if(k){document.getElementById('apiKeyInput').value=k;checkApiKey();}
+    const s=localStorage.getItem('cmb_data');if(!s)return;
+    const d=JSON.parse(s);
+    ['loanType','loanAmount','loanPurpose','interestRate','rateType','rateIndex','maturity','amortization',
+     'ioPeriod','prepayDetail','recourse','fees','covenants','conditions','recommendation','borrowerName',
+     'entityType','borrowerAddress','dateEstablished','industry','employees','bizActivity','creditReportText',
+     'mgmtBackground','yearsExp','priorRelationship','adverseHistory','pfsText','pfsDate','equityContrib',
+     'totalProjectCost','equityPct','sourcesUses','cashFlowText','dscr','yearsFinancials','annualDebtService',
+     'revTrend','trendingNotes','appraisalText','envText','collateralType','appraisedValue','ltv','lienPosition',
+     'existingLiens','feasibilityText','industryOutlook','marketConditions','keyRisks','mitigatingFactors',
+     'additionalNotes','analystName','institutionName'
+    ].forEach(id=>{const el=document.getElementById(id);if(el&&d[id]!==undefined)el.value=d[id];});
+    updateSidebar();
+  }catch(e){}
+}
+
+document.querySelectorAll('input,textarea,select').forEach(el=>{
+  el.addEventListener('change',updateSidebar);
+  el.addEventListener('input',updateSidebar);
+});
+addGuarantor();
+addCreditScore();
+loadSaved();
+updateSidebar();
+</script>
+</body>
+</html>
